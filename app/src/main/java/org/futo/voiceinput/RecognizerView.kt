@@ -44,9 +44,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -67,6 +73,7 @@ import org.futo.voiceinput.settings.getSetting
 import org.futo.voiceinput.settings.useDataStoreValueNullable
 import org.futo.voiceinput.theme.Typography
 
+@OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.recognizerSurfaceClickable(disabled: Boolean, onPauseVAD: (Boolean) -> Unit, onFinish: () -> Unit): Modifier = composed {
     val interactionSource = remember { MutableInteractionSource() }
     val ripple = rememberRipple(bounded = false)
@@ -90,6 +97,21 @@ fun Modifier.recognizerSurfaceClickable(disabled: Boolean, onPauseVAD: (Boolean)
                 }
             })
         }.indication(interactionSource, ripple).semantics(mergeDescendants = true) { }
+            .onPreviewKeyEvent { event ->
+                // On a device driven by a D-pad / remote (e.g. Android TV) there is no touchscreen
+                // to tap the window to finish, and the D-pad center would otherwise activate the
+                // focused cancel button and dismiss voice input. Treat center / enter as a tap on
+                // the window: finish recognition and submit the result.
+                when (event.key) {
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        if (event.type == KeyEventType.KeyUp && !disabled) {
+                            onFinish()
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
 }
 
 @Composable
